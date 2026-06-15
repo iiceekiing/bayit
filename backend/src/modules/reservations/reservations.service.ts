@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ReservationStatus } from '@prisma/client';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ReservationsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   async create(
     userId: string | null,
@@ -35,6 +39,16 @@ export class ReservationsService {
       include: { property: true },
     });
 
+    if (userId) {
+      const depositNaira = Number(DEPOSIT) / 100;
+      await this.notifications.create(
+        userId,
+        'RESERVATION_CREATED',
+        'Reservation Submitted',
+        `Your reservation for ${property.title} has been submitted. Required deposit: ₦${depositNaira.toLocaleString()}. Awaiting admin review.`,
+      );
+    }
+
     return this.serialize(reservation);
   }
 
@@ -60,7 +74,10 @@ export class ReservationsService {
   }
 
   async adminUpdateStatus(id: string, status: ReservationStatus) {
-    const reservation = await this.prisma.reservation.findUnique({ where: { id } });
+    const reservation = await this.prisma.reservation.findUnique({
+      where: { id },
+      include: { property: true },
+    });
     if (!reservation) throw new NotFoundException('Reservation not found');
 
     const data: any = { status };
@@ -68,7 +85,6 @@ export class ReservationsService {
     if (status === 'APPROVED') {
       data.depositPaid = true;
       data.reservedUntil = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000); // 14 days
-      // Mark property as reserved
       if (reservation.propertyId) {
         await this.prisma.property.update({
           where: { id: reservation.propertyId },
@@ -90,6 +106,27 @@ export class ReservationsService {
       data,
       include: { property: true },
     });
+
+    if (reservation.userId) {
+      const propertyTitle = reservation.property?.title ?? 'the property';
+      if (status === 'APPROVED') {
+        const until = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toDateString();
+        await this.notifications.create(
+          reservation.userId,
+          'RESERVATION_APPROVED',
+          'Reservation Approved',
+          `Your reservation for ${propertyTitle} has been approved! Your reservation is valid until ${until}. Please complete your payment to secure the property.`,
+        );
+      } else if (status === 'REJECTED') {
+        await this.notifications.create(
+          reservation.userId,
+          'RESERVATION_REJECTED',
+          'Reservation Rejected',
+          `Your reservation for ${propertyTitle} has been rejected. Please contact us for more information.`,
+        );
+      }
+    }
+
     return this.serialize(updated);
   }
 

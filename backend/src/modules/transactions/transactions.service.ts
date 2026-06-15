@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TransactionStatus } from '@prisma/client';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class TransactionsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   async create(
     userId: string,
@@ -15,6 +19,8 @@ export class TransactionsService {
       receiptUrl?: string;
     },
   ) {
+    const property = await this.prisma.property.findUnique({ where: { id: dto.propertyId } });
+
     const tx = await this.prisma.transaction.create({
       data: {
         userId,
@@ -25,6 +31,16 @@ export class TransactionsService {
       },
       include: { property: true },
     });
+
+    const propertyTitle = property?.title ?? 'the property';
+    const amountNaira = dto.amount / 100;
+    await this.notifications.create(
+      userId,
+      'PAYMENT_SUBMITTED',
+      'Payment Submitted',
+      `Your payment of ₦${amountNaira.toLocaleString()} for ${propertyTitle} has been submitted and is pending admin review.`,
+    );
+
     return this.serialize(tx);
   }
 
@@ -49,7 +65,10 @@ export class TransactionsService {
   }
 
   async adminUpdate(id: string, status: TransactionStatus, adminNotes?: string) {
-    const tx = await this.prisma.transaction.findUnique({ where: { id } });
+    const tx = await this.prisma.transaction.findUnique({
+      where: { id },
+      include: { property: true },
+    });
     if (!tx) throw new NotFoundException('Transaction not found');
 
     if (status === 'APPROVED' && tx.propertyId) {
@@ -64,6 +83,26 @@ export class TransactionsService {
       data: { status, adminNotes },
       include: { property: true },
     });
+
+    const propertyTitle = tx.property?.title ?? 'the property';
+    const amountNaira = Number(tx.amount) / 100;
+
+    if (status === 'APPROVED') {
+      await this.notifications.create(
+        tx.userId,
+        'PAYMENT_APPROVED',
+        'Payment Approved',
+        `Your payment of ₦${amountNaira.toLocaleString()} for ${propertyTitle} has been approved. Congratulations on your purchase!`,
+      );
+    } else if (status === 'REJECTED') {
+      await this.notifications.create(
+        tx.userId,
+        'PAYMENT_REJECTED',
+        'Payment Rejected',
+        `Your payment for ${propertyTitle} has been rejected.${adminNotes ? ` Reason: ${adminNotes}` : ''} Please resubmit with the correct details.`,
+      );
+    }
+
     return this.serialize(updated);
   }
 
