@@ -8,6 +8,7 @@ import { getProperty } from "@/lib/api";
 import { formatPrice, propertyTypeLabel, statusLabel, statusColor, amenityLabel, amenityEmoji } from "@/lib/utils";
 import { PropertyGallery } from "@/components/property/PropertyGallery";
 import { ReserveButton } from "@/components/property/ReserveButton";
+import { SavePropertyButton } from "@/components/property/SavePropertyButton";
 
 interface Props { params: Promise<{ id: string }> }
 
@@ -216,6 +217,8 @@ export default async function PropertyDetailPage({ params }: Props) {
                 >
                   <MessageSquare size={15} /> Chat with Agent
                 </Link>
+
+                <SavePropertyButton propertyId={property.id} />
               </>
             )}
 
