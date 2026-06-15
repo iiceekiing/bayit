@@ -1,11 +1,15 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { InspectionStatus } from '@prisma/client';
 import { v4 as uuid } from 'uuid';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class InspectionsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   // ── User: book an inspection slot ──────────────────────────────────────────
 
@@ -52,6 +56,13 @@ export class InspectionsService {
       include: { slot: { include: { property: true } } },
     });
 
+    await this.notifications.create(
+      userId,
+      'INSPECTION_BOOKED',
+      'Inspection Booked',
+      `Your inspection for ${slot.property.title} on ${new Date(slot.date).toDateString()} at ${slot.time} has been booked. Ticket: ${ticketNumber}.`,
+    );
+
     return this.serializeBooking(booking);
   }
 
@@ -94,14 +105,43 @@ export class InspectionsService {
   }
 
   async adminUpdateStatus(id: string, status: InspectionStatus, adminNotes?: string) {
-    const booking = await this.prisma.inspectionBooking.findUnique({ where: { id } });
+    const booking = await this.prisma.inspectionBooking.findUnique({
+      where: { id },
+      include: { slot: { include: { property: true } } },
+    });
     if (!booking) throw new NotFoundException('Booking not found');
 
-    return this.prisma.inspectionBooking.update({
+    const updated = await this.prisma.inspectionBooking.update({
       where: { id },
       data: { status, adminNotes },
       include: { slot: { include: { property: true } } },
     });
+
+    const notifMap: Partial<Record<InspectionStatus, { title: string; message: string }>> = {
+      APPROVED: {
+        title: 'Inspection Approved',
+        message: `Your inspection for ${booking.slot.property.title} on ${new Date(booking.slot.date).toDateString()} has been approved. Please bring a valid ID.`,
+      },
+      REJECTED: {
+        title: 'Inspection Rejected',
+        message: `Your inspection booking for ${booking.slot.property.title} has been rejected.${adminNotes ? ` Reason: ${adminNotes}` : ''}`,
+      },
+      COMPLETED: {
+        title: 'Inspection Completed',
+        message: `Your inspection for ${booking.slot.property.title} has been marked as completed.`,
+      },
+      CANCELLED: {
+        title: 'Inspection Cancelled',
+        message: `Your inspection for ${booking.slot.property.title} has been cancelled.${adminNotes ? ` Reason: ${adminNotes}` : ''}`,
+      },
+    };
+
+    const notif = notifMap[status];
+    if (notif && booking.userId) {
+      await this.notifications.create(booking.userId, `INSPECTION_${status}` as any, notif.title, notif.message);
+    }
+
+    return updated;
   }
 
   // ── Slot management ─────────────────────────────────────────────────────────
