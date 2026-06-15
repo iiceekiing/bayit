@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Param, Body, UseGuards } from '@nestjs/common';
 import { MessagesService } from './messages.service';
+import { MessagesGateway } from './messages.gateway';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -10,7 +11,10 @@ import { UserRole } from '@prisma/client';
 @Controller('api/messages')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class MessagesController {
-  constructor(private service: MessagesService) {}
+  constructor(
+    private service: MessagesService,
+    private gateway: MessagesGateway,
+  ) {}
 
   @Public()
   @Get('admins')
@@ -30,12 +34,15 @@ export class MessagesController {
   }
 
   @Post('to/:adminId')
-  sendToAdmin(
+  async sendToAdmin(
     @CurrentUser() user: any,
     @Param('adminId') adminId: string,
     @Body() dto: any,
   ) {
-    return this.service.sendToAdmin(user.id, adminId, dto);
+    const msg = await this.service.sendToAdmin(user.id, adminId, dto);
+    // Emit real-time event to the admin recipient
+    this.gateway.emitToUser(adminId, 'newMessage', { ...msg, fileSize: msg.fileSize?.toString() });
+    return msg;
   }
 
   @Get('unread-count')
@@ -58,12 +65,15 @@ export class MessagesController {
 
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   @Post('admin/:userId')
-  adminSend(
+  async adminSend(
     @CurrentUser() admin: any,
     @Param('userId') userId: string,
     @Body() dto: any,
   ) {
-    return this.service.adminSend(admin.id, userId, dto);
+    const msg = await this.service.adminSend(admin.id, userId, dto);
+    // Emit real-time event to the user recipient
+    this.gateway.emitToUser(userId, 'newMessage', { ...msg, fileSize: msg.fileSize?.toString() });
+    return msg;
   }
 
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
