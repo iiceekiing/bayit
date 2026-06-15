@@ -45,8 +45,26 @@ export default function InspectionsPage() {
 
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6">
         {loading ? (
-          <div className="flex justify-center py-16">
-            <div className="w-6 h-6 rounded-full border-2 border-teal-DEFAULT border-t-transparent animate-spin" />
+          <div className="space-y-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="bg-white border border-border rounded-2xl overflow-hidden">
+                <div className="px-5 py-4 flex items-start justify-between gap-3">
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 w-1/2 bg-navy-ghost rounded-lg animate-pulse" />
+                    <div className="h-3 w-1/3 bg-navy-ghost rounded-lg animate-pulse" />
+                  </div>
+                  <div className="h-6 w-24 bg-navy-ghost rounded-full animate-pulse" />
+                </div>
+                <div className="border-t border-border px-5 py-3 bg-canvas grid grid-cols-3 gap-3">
+                  {Array.from({ length: 3 }).map((_, j) => (
+                    <div key={j} className="space-y-1">
+                      <div className="h-2 w-10 bg-navy-ghost rounded animate-pulse" />
+                      <div className="h-3 w-16 bg-navy-ghost rounded animate-pulse" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         ) : bookings.length === 0 ? (
           <div className="text-center py-16">

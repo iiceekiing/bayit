@@ -1,5 +1,9 @@
 import type { PropertyType, PropertyStatus, Amenity } from "./types";
 
+export function cn(...classes: (string | undefined | null | false)[]): string {
+  return classes.filter(Boolean).join(" ");
+}
+
 // Price in kobo → formatted Naira string
 export function formatPrice(kobo: string | number | bigint): string {
   const naira = Number(kobo) / 100;

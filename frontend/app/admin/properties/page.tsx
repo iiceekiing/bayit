@@ -57,8 +57,17 @@ export default function AdminPropertiesPage() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-16">
-          <div className="w-6 h-6 rounded-full border-2 border-teal-DEFAULT border-t-transparent animate-spin" />
+        <div className="space-y-3">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="bg-white border border-border rounded-2xl overflow-hidden flex">
+              <div className="w-24 sm:w-32 h-24 bg-navy-ghost animate-pulse shrink-0" />
+              <div className="flex-1 p-4 space-y-2">
+                <div className="h-3.5 w-1/3 bg-navy-ghost rounded-lg animate-pulse" />
+                <div className="h-4 w-1/2 bg-navy-ghost rounded-lg animate-pulse" />
+                <div className="h-3 w-1/4 bg-navy-ghost rounded-lg animate-pulse" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16">
