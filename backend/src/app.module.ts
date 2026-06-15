@@ -11,12 +11,14 @@ import { MessagesModule } from './modules/messages/messages.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { UploadModule } from './modules/upload/upload.module';
 import { PaymentSettingsModule } from './modules/payment-settings/payment-settings.module';
+import { EmailModule } from './modules/email/email.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 
 @Module({
   imports: [
     PrismaModule,
+    EmailModule,
     AuthModule,
     UsersModule,
     PropertiesModule,

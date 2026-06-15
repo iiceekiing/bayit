@@ -2,12 +2,14 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../../prisma/prisma.service';
 import { ReservationStatus } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class ReservationsService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private email: EmailService,
   ) {}
 
   async create(
@@ -46,6 +48,16 @@ export class ReservationsService {
         'RESERVATION_CREATED',
         'Reservation Submitted',
         `Your reservation for ${property.title} has been submitted. Required deposit: ₦${depositNaira.toLocaleString()}. Awaiting admin review.`,
+      );
+    }
+
+    if (dto.buyerEmail) {
+      const depositNaira = Number(DEPOSIT) / 100;
+      await this.email.sendReservationCreated(
+        dto.buyerEmail,
+        dto.buyerName,
+        property.title,
+        `₦${depositNaira.toLocaleString()}`,
       );
     }
 
@@ -117,6 +129,9 @@ export class ReservationsService {
           'Reservation Approved',
           `Your reservation for ${propertyTitle} has been approved! Your reservation is valid until ${until}. Please complete your payment to secure the property.`,
         );
+        if (reservation.buyerEmail) {
+          await this.email.sendReservationApproved(reservation.buyerEmail, reservation.buyerName, propertyTitle, until);
+        }
       } else if (status === 'REJECTED') {
         await this.notifications.create(
           reservation.userId,
