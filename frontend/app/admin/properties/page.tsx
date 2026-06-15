@@ -106,13 +106,17 @@ export default function AdminPropertiesPage() {
                 </div>
 
                 <div className="flex items-center gap-3 mt-3">
+                  <Link href={`/admin/properties/${p.id}`}
+                    className="flex items-center gap-1.5 text-xs text-navy-muted hover:text-teal-DEFAULT transition-colors font-medium">
+                    View
+                  </Link>
                   <Link href={`/admin/properties/${p.id}/edit`}
                     className="flex items-center gap-1.5 text-xs text-navy-muted hover:text-teal-DEFAULT transition-colors font-medium">
                     <Edit2 size={13} /> Edit
                   </Link>
                   <Link href={`/properties/${p.id}`} target="_blank"
                     className="text-xs text-teal-DEFAULT hover:text-teal-dark font-medium">
-                    View →
+                    Public →
                   </Link>
                   <button onClick={() => handleDelete(p.id)} disabled={deleting === p.id}
                     className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-600 transition-colors ml-auto disabled:opacity-40">
