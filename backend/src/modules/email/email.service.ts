@@ -152,6 +152,19 @@ export class EmailService {
     );
   }
 
+  async sendPasswordReset(to: string, name: string, resetLink: string) {
+    await this.send(
+      to,
+      'Reset Your Bayit Password',
+      this.wrap('Password Reset Request', `
+        <p style="color:#4A5A72;line-height:1.6">Hi ${name},</p>
+        <p style="color:#4A5A72;line-height:1.6">We received a request to reset your Bayit password. Click the button below to set a new password. This link expires in <strong>15 minutes</strong>.</p>
+        <a href="${resetLink}" style="display:inline-block;margin-top:16px;background:#0D7377;color:#fff;padding:12px 24px;border-radius:100px;text-decoration:none;font-size:14px;font-weight:600">Reset Password →</a>
+        <p style="margin-top:24px;color:#8A9AB2;font-size:12px;line-height:1.6">If you did not request a password reset, you can ignore this email. Your account remains secure.</p>
+      `),
+    );
+  }
+
   async sendPaymentApproved(to: string, name: string, propertyTitle: string, amount: string) {
     await this.send(
       to,
