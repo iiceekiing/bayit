@@ -3,12 +3,14 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { InspectionStatus } from '@prisma/client';
 import { v4 as uuid } from 'uuid';
 import { NotificationsService } from '../notifications/notifications.service';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class InspectionsService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private email: EmailService,
   ) {}
 
   // ── User: book an inspection slot ──────────────────────────────────────────
@@ -61,6 +63,15 @@ export class InspectionsService {
       'INSPECTION_BOOKED',
       'Inspection Booked',
       `Your inspection for ${slot.property.title} on ${new Date(slot.date).toDateString()} at ${slot.time} has been booked. Ticket: ${ticketNumber}.`,
+    );
+
+    await this.email.sendInspectionBooked(
+      dto.email,
+      dto.fullName,
+      slot.property.title,
+      new Date(slot.date).toDateString(),
+      slot.time,
+      ticketNumber,
     );
 
     return this.serializeBooking(booking);
@@ -139,6 +150,23 @@ export class InspectionsService {
     const notif = notifMap[status];
     if (notif && booking.userId) {
       await this.notifications.create(booking.userId, `INSPECTION_${status}` as any, notif.title, notif.message);
+    }
+
+    if (status === 'APPROVED') {
+      await this.email.sendInspectionApproved(
+        booking.email,
+        booking.fullName,
+        booking.slot.property.title,
+        new Date(booking.slot.date).toDateString(),
+        booking.slot.time,
+      );
+    } else if (status === 'REJECTED') {
+      await this.email.sendInspectionRejected(
+        booking.email,
+        booking.fullName,
+        booking.slot.property.title,
+        adminNotes,
+      );
     }
 
     return updated;
