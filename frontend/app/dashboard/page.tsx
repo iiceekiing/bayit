@@ -70,6 +70,7 @@ export default function DashboardPage() {
 
   const nav = [
     { href: "/dashboard/inspections", icon: Calendar, label: "Inspections", count: pendingInspections.length, desc: "Booked inspection slots" },
+    { href: "/dashboard/reservations", icon: Shield, label: "Reservations", count: approvedReservations.length, desc: "Your property reservations" },
     { href: "/dashboard/messages", icon: MessageSquare, label: "Messages", count: unreadMsgs, desc: "Chat with agents" },
     { href: "/dashboard/saved", icon: Heart, label: "Saved", count: savedCount, desc: "Saved properties" },
     { href: "/dashboard/notifications", icon: Bell, label: "Notifications", count: unreadNotifs, desc: "Your activity updates" },
@@ -113,7 +114,7 @@ export default function DashboardPage() {
 
         {/* Active Reservations */}
         {approvedReservations.length > 0 && (
-          <Section title="Active Reservations" icon={Shield} href="/dashboard/inspections">
+          <Section title="Active Reservations" icon={Shield} href="/dashboard/reservations">
             <div className="space-y-2">
               {approvedReservations.slice(0, 3).map((r) => (
                 <div key={r.id} className="flex items-center gap-3 p-3 bg-canvas border border-border rounded-xl">
@@ -180,7 +181,7 @@ export default function DashboardPage() {
         )}
 
         {/* Nav cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {nav.map((n) => (
             <Link key={n.href} href={n.href} className="bg-white border border-border rounded-2xl p-4 hover:border-teal-DEFAULT/50 hover:shadow-sm transition-all group">
               <div className="relative mb-3 w-fit">
