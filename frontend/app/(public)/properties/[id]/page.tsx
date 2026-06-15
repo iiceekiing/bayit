@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import Link from "next/link";
 import {
   MapPin, Bed, Bath, Car, Maximize2, Calendar, Building2,
@@ -8,8 +9,36 @@ import { getProperty } from "@/lib/api";
 import { formatPrice, propertyTypeLabel, statusLabel, statusColor, amenityLabel, amenityEmoji } from "@/lib/utils";
 import { PropertyGallery } from "@/components/property/PropertyGallery";
 import { ReserveButton } from "@/components/property/ReserveButton";
+import { SavePropertyButton } from "@/components/property/SavePropertyButton";
 
 interface Props { params: Promise<{ id: string }> }
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { id } = await params;
+  const property = await getProperty(id).catch(() => null);
+  if (!property) return { title: "Property Not Found" };
+
+  const price = formatPrice(property.price);
+  const type = propertyTypeLabel(property.propertyType);
+  const location = `${property.city}, ${property.state}`;
+
+  return {
+    title: `${property.title} — ${price}`,
+    description: `${type} for sale in ${location}. ${property.bedrooms ? `${property.bedrooms} beds, ` : ""}${property.bathrooms ? `${property.bathrooms} baths. ` : ""}${property.description?.slice(0, 120) ?? ""}`,
+    openGraph: {
+      title: `${property.title} | Bayit`,
+      description: `${type} in ${location} — ${price}`,
+      images: property.coverImage ? [{ url: property.coverImage }] : [],
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${property.title} | Bayit`,
+      description: `${type} in ${location} — ${price}`,
+      images: property.coverImage ? [property.coverImage] : [],
+    },
+  };
+}
 
 export default async function PropertyDetailPage({ params }: Props) {
   const { id } = await params;
@@ -216,6 +245,8 @@ export default async function PropertyDetailPage({ params }: Props) {
                 >
                   <MessageSquare size={15} /> Chat with Agent
                 </Link>
+
+                <SavePropertyButton propertyId={property.id} />
               </>
             )}
 

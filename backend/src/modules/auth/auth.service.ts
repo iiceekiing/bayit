@@ -4,12 +4,14 @@ import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwt: JwtService,
+    private email: EmailService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -22,6 +24,7 @@ export class AuthService {
     });
 
     const token = this.signToken(user.id, user.email, user.role);
+    await this.email.sendWelcome(user.email, user.name);
     return { token, user: this.sanitize(user) };
   }
 

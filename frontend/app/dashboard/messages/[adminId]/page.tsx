@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, useRef, use } from "react";
+import { useEffect, useState, useRef, use, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, Send, Loader2, Image, Paperclip } from "lucide-react";
 import { getConversation, sendMessage, getAdmins, getToken, uploadChatImage, uploadChatDocument } from "@/lib/api";
+import { useTypingWs } from "@/hooks/useTypingWs";
 import type { Message, AdminSummary } from "@/lib/types";
 
 interface Props { params: Promise<{ adminId: string }> }
@@ -26,12 +27,33 @@ export default function ChatPage({ params }: Props) {
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [isAdminTyping, setIsAdminTyping] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const imgRef = useRef<HTMLInputElement>(null);
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const token = getToken();
+
+  const handleNewMessage = useCallback((msg: Message) => {
+    setMessages((prev) => {
+      // Avoid duplicates from optimistic updates
+      if (prev.some((m) => m.id === msg.id)) return prev;
+      return [...prev, msg];
+    });
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, []);
+
+  const handleTypingEvent = useCallback((isTyping: boolean, fromId: string) => {
+    if (fromId === adminId) setIsAdminTyping(isTyping);
+  }, [adminId]);
+
+  const { sendTyping } = useTypingWs({
+    token,
+    onNewMessage: handleNewMessage,
+    onTyping: handleTypingEvent,
+  });
 
   useEffect(() => {
-    const token = getToken();
     if (!token) { router.replace("/login"); return; }
     Promise.all([
       getConversation(adminId, token),
@@ -41,20 +63,27 @@ export default function ChatPage({ params }: Props) {
       setAdmin(admins.find((a) => a.id === adminId) ?? null);
     }).catch(() => router.replace("/login"))
       .finally(() => setLoading(false));
-  }, [adminId, router]);
+  }, [adminId, router, token]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  function handleTextChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    setText(e.target.value);
+    sendTyping(adminId, true);
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    typingTimerRef.current = setTimeout(() => sendTyping(adminId, false), 2000);
+  }
+
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
     const t = text.trim();
     if (!t || sending) return;
-    const token = getToken();
     if (!token) return;
     setSending(true);
     setText("");
+    sendTyping(adminId, false);
     try {
       const msg = await sendMessage(adminId, { content: t, messageType: "TEXT" }, token);
       setMessages((prev) => [...prev, msg]);
@@ -64,7 +93,6 @@ export default function ChatPage({ params }: Props) {
   }
 
   async function handleFileUpload(file: File, type: "image" | "document") {
-    const token = getToken();
     if (!token) return;
     setUploading(true);
     try {
@@ -106,7 +134,9 @@ export default function ChatPage({ params }: Props) {
         </div>
         <div>
           <p className="text-sm font-semibold text-navy-DEFAULT">{admin?.displayName ?? "Agent"}</p>
-          <p className="text-[10px] text-navy-muted">{admin?.role === "SUPER_ADMIN" ? "Super Admin" : "Agent"}</p>
+          <p className="text-[10px] text-navy-muted">
+            {isAdminTyping ? "typing…" : admin?.role === "SUPER_ADMIN" ? "Super Admin" : "Agent"}
+          </p>
         </div>
       </div>
 
@@ -154,6 +184,18 @@ export default function ChatPage({ params }: Props) {
             </div>
           ))
         )}
+
+        {/* Typing indicator bubble */}
+        {isAdminTyping && (
+          <div className="flex justify-start mb-2">
+            <div className="bg-white border border-border rounded-2xl rounded-bl-sm px-4 py-2.5 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 bg-navy-faint rounded-full animate-bounce [animation-delay:0ms]" />
+              <span className="w-1.5 h-1.5 bg-navy-faint rounded-full animate-bounce [animation-delay:150ms]" />
+              <span className="w-1.5 h-1.5 bg-navy-faint rounded-full animate-bounce [animation-delay:300ms]" />
+            </div>
+          </div>
+        )}
+
         <div ref={bottomRef} />
       </div>
 
@@ -177,7 +219,7 @@ export default function ChatPage({ params }: Props) {
 
           <textarea
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={handleTextChange}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(e as any); } }}
             placeholder="Type a message…"
             rows={1}

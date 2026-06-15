@@ -1,7 +1,18 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Search, Shield, Calendar, TrendingUp, ArrowRight, MapPin, Home, Building2, Landmark } from "lucide-react";
 import { getFeaturedProperties } from "@/lib/api";
 import { PropertyCard } from "@/components/property/PropertyCard";
+
+export const metadata: Metadata = {
+  title: "Bayit — Find Your Home in Nigeria",
+  description: "Nigeria's premium real estate marketplace. Browse verified properties, book inspections, and purchase with confidence. Houses, apartments, land for sale across Nigeria.",
+  openGraph: {
+    title: "Bayit — Find Your Home in Nigeria",
+    description: "Browse verified properties, book inspections, and purchase with confidence.",
+    type: "website",
+  },
+};
 
 export default async function HomePage() {
   const featured = await getFeaturedProperties().catch(() => []);

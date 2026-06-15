@@ -199,6 +199,10 @@ export async function getUserUnreadCount(token: string): Promise<{ count: number
   return request("/api/messages/unread-count", { headers: authHeader(token) });
 }
 
+export async function getAdminUnreadCount(token: string): Promise<{ count: number }> {
+  return request("/api/messages/admin/unread-count/all", { headers: authHeader(token) });
+}
+
 export async function adminGetConversations(token: string): Promise<ConversationSummary[]> {
   return request("/api/messages/admin/conversations", { headers: authHeader(token) });
 }

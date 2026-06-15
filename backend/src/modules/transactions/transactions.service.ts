@@ -2,12 +2,14 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TransactionStatus } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class TransactionsService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private email: EmailService,
   ) {}
 
   async create(
@@ -19,7 +21,10 @@ export class TransactionsService {
       receiptUrl?: string;
     },
   ) {
-    const property = await this.prisma.property.findUnique({ where: { id: dto.propertyId } });
+    const [property, user] = await Promise.all([
+      this.prisma.property.findUnique({ where: { id: dto.propertyId } }),
+      this.prisma.user.findUnique({ where: { id: userId }, select: { email: true, name: true } }),
+    ]);
 
     const tx = await this.prisma.transaction.create({
       data: {
@@ -40,6 +45,10 @@ export class TransactionsService {
       'Payment Submitted',
       `Your payment of ₦${amountNaira.toLocaleString()} for ${propertyTitle} has been submitted and is pending admin review.`,
     );
+
+    if (user?.email) {
+      await this.email.sendPaymentSubmitted(user.email, user.name ?? 'Customer', propertyTitle, `₦${amountNaira.toLocaleString()}`);
+    }
 
     return this.serialize(tx);
   }
@@ -67,7 +76,7 @@ export class TransactionsService {
   async adminUpdate(id: string, status: TransactionStatus, adminNotes?: string) {
     const tx = await this.prisma.transaction.findUnique({
       where: { id },
-      include: { property: true },
+      include: { property: true, user: { select: { email: true, name: true } } },
     });
     if (!tx) throw new NotFoundException('Transaction not found');
 
@@ -94,6 +103,9 @@ export class TransactionsService {
         'Payment Approved',
         `Your payment of ₦${amountNaira.toLocaleString()} for ${propertyTitle} has been approved. Congratulations on your purchase!`,
       );
+      if (tx.user?.email) {
+        await this.email.sendPaymentApproved(tx.user.email, tx.user.name ?? 'Customer', propertyTitle, `₦${amountNaira.toLocaleString()}`);
+      }
     } else if (status === 'REJECTED') {
       await this.notifications.create(
         tx.userId,
