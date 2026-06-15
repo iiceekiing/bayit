@@ -1,8 +1,18 @@
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import { getProperties, getStates } from "@/lib/api";
 import { PropertyCard } from "@/components/property/PropertyCard";
 import { PropertiesFilters } from "@/components/property/PropertiesFilters";
 import type { PropertyFilters } from "@/lib/types";
+
+export const metadata: Metadata = {
+  title: "Browse Properties",
+  description: "Search and filter thousands of properties across Nigeria. Find houses, apartments, land, and commercial spaces for sale.",
+  openGraph: {
+    title: "Browse Properties | Bayit",
+    description: "Discover properties for sale across Nigeria — filter by type, location, price, and more.",
+  },
+};
 
 interface PageProps {
   searchParams: Promise<Record<string, string | undefined>>;
