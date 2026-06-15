@@ -1,0 +1,352 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Users ─────────────────────────────────────────────────────────────────────
+
+model User {
+  id         String   @id @default(uuid())
+  name       String
+  email      String   @unique
+  phone      String?
+  password   String
+  role       UserRole @default(USER)
+  isVerified Boolean  @default(false)
+  avatarUrl  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  reservations       Reservation[]
+  inspectionBookings InspectionBooking[]
+  transactions       Transaction[]
+  sentMessages       Message[]          @relation("UserMessages")
+  savedProperties    SavedProperty[]
+  notifications      Notification[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  AGENT
+  USER
+}
+
+// ─── Properties ────────────────────────────────────────────────────────────────
+
+model Property {
+  id          String         @id @default(uuid())
+  title       String
+  description String         @db.Text
+  propertyType PropertyType
+  price       BigInt
+  status      PropertyStatus @default(AVAILABLE)
+  isFeatured  Boolean        @default(false)
+
+  bedrooms      Int?
+  bathrooms     Int?
+  toilets       Int?
+  parkingSpaces Int?
+  landSize      Float?
+  floorArea     Float?
+  yearBuilt     Int?
+
+  state   String
+  city    String
+  area    String?
+  address String
+  latitude  Float?
+  longitude Float?
+
+  images     String[]
+  coverImage String?
+  videoUrl   String?
+
+  amenities  Amenity[]
+  documents  PropertyDocument[]
+  inspectionSlots InspectionSlot[]
+  reservations    Reservation[]
+  transactions    Transaction[]
+  savedBy         SavedProperty[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("properties")
+}
+
+enum PropertyType {
+  HOUSE
+  APARTMENT
+  DUPLEX
+  TERRACE
+  BUNGALOW
+  VILLA
+  STUDIO_APARTMENT
+  OFFICE_SPACE
+  SHOP
+  WAREHOUSE
+  LAND
+  COMMERCIAL_BUILDING
+}
+
+enum PropertyStatus {
+  AVAILABLE
+  INSPECTION_BOOKED
+  RESERVED
+  PENDING_PAYMENT
+  SOLD
+  OFF_MARKET
+  UNDER_REVIEW
+}
+
+enum Amenity {
+  SWIMMING_POOL
+  GYM
+  SECURITY
+  CCTV
+  WATER_SUPPLY
+  SOLAR_POWER
+  ELEVATOR
+  FURNISHED
+  AIR_CONDITIONING
+  GARDEN
+  CHILDREN_PLAY_AREA
+  INTERNET
+}
+
+// ─── Property Documents ─────────────────────────────────────────────────────────
+
+model PropertyDocument {
+  id         String       @id @default(uuid())
+  propertyId String
+  property   Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  type       DocumentType
+  name       String
+  url        String
+  createdAt  DateTime     @default(now())
+
+  @@map("property_documents")
+}
+
+enum DocumentType {
+  SURVEY
+  C_OF_O
+  BUILDING_APPROVAL
+  OWNERSHIP_DOCUMENT
+  VERIFICATION_DOCUMENT
+  OTHER
+}
+
+// ─── Inspection Slots ───────────────────────────────────────────────────────────
+
+model InspectionSlot {
+  id          String   @id @default(uuid())
+  propertyId  String
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  date        DateTime
+  time        String
+  maxVisitors Int      @default(10)
+  fee         BigInt   @default(1000000)
+  isActive    Boolean  @default(true)
+
+  bookings InspectionBooking[]
+
+  createdAt DateTime @default(now())
+
+  @@map("inspection_slots")
+}
+
+// ─── Inspection Bookings ────────────────────────────────────────────────────────
+
+model InspectionBooking {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+  slotId String
+  slot   InspectionSlot @relation(fields: [slotId], references: [id])
+
+  fullName String
+  email    String
+  phone    String
+
+  ticketNumber     String            @unique @default(uuid())
+  status           InspectionStatus  @default(PENDING)
+  paymentReference String?
+  receiptUrl       String?
+  paystackRef      String?
+  adminNotes       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("inspection_bookings")
+}
+
+enum InspectionStatus {
+  PENDING
+  PAID
+  APPROVED
+  CANCELLED
+  COMPLETED
+}
+
+// ─── Reservations ───────────────────────────────────────────────────────────────
+
+model Reservation {
+  id         String  @id @default(uuid())
+  userId     String?
+  user       User?   @relation(fields: [userId], references: [id])
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id])
+
+  buyerName  String
+  buyerPhone String
+  buyerEmail String?
+  notes      String?
+
+  depositAmount BigInt?
+  depositPaid   Boolean  @default(false)
+  reservedUntil DateTime?
+  paystackRef   String?
+
+  status    ReservationStatus @default(PENDING)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  @@map("reservations")
+}
+
+enum ReservationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+// ─── Transactions ───────────────────────────────────────────────────────────────
+
+model Transaction {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id])
+
+  amount           BigInt
+  paymentReference String?
+  receiptUrl       String?
+  paystackRef      String?
+
+  status     TransactionStatus @default(PENDING)
+  adminNotes String?
+  approvedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("transactions")
+}
+
+enum TransactionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ─── Messages ───────────────────────────────────────────────────────────────────
+
+model Message {
+  id      String @id @default(uuid())
+  userId  String
+  user    User   @relation("UserMessages", fields: [userId], references: [id])
+  adminId String?
+
+  content     String?     @db.Text
+  fromAdmin   Boolean     @default(false)
+  read        Boolean     @default(false)
+  messageType MessageType @default(TEXT)
+
+  fileUrl  String?
+  fileName String?
+  fileSize BigInt?
+  mimeType String?
+
+  createdAt DateTime @default(now())
+
+  @@map("messages")
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  VIDEO
+  VOICE
+  DOCUMENT
+}
+
+// ─── Saved Properties ──────────────────────────────────────────────────────────
+
+model SavedProperty {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id])
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, propertyId])
+  @@map("saved_properties")
+}
+
+// ─── Notifications ─────────────────────────────────────────────────────────────
+
+model Notification {
+  id      String   @id @default(uuid())
+  userId  String
+  user    User     @relation(fields: [userId], references: [id])
+
+  type    NotificationType
+  title   String
+  message String
+  read    Boolean  @default(false)
+  data    Json?
+
+  createdAt DateTime @default(now())
+
+  @@map("notifications")
+}
+
+enum NotificationType {
+  INSPECTION_BOOKED
+  INSPECTION_APPROVED
+  INSPECTION_REJECTED
+  RESERVATION_CREATED
+  RESERVATION_APPROVED
+  RESERVATION_REJECTED
+  PAYMENT_SUBMITTED
+  PAYMENT_APPROVED
+  PAYMENT_REJECTED
+  NEW_MESSAGE
+  ADMIN_ALERT
+}
+
+// ─── Payment Settings ──────────────────────────────────────────────────────────
+
+model PaymentSettings {
+  id            String   @id @default(uuid())
+  bankName      String
+  accountName   String
+  accountNumber String
+  instructions  String?
+  updatedAt     DateTime @updatedAt
+  updatedBy     String?
+
+  @@map("payment_settings")
+}
