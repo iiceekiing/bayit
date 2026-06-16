@@ -3,9 +3,10 @@
 import { useEffect, useState, useRef, use, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, Send, Loader2, Image, Paperclip } from "lucide-react";
-import { getConversation, sendMessage, getAdmins, getToken, uploadChatImage, uploadChatDocument } from "@/lib/api";
+import { ChevronLeft, Send, Loader2, Image, Paperclip, Mic, MicOff, X } from "lucide-react";
+import { getConversation, sendMessage, getAdmins, getToken, uploadChatImage, uploadChatDocument, uploadChatVoice } from "@/lib/api";
 import { useTypingWs } from "@/hooks/useTypingWs";
+import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import type { Message, AdminSummary } from "@/lib/types";
 
 interface Props { params: Promise<{ adminId: string }> }
@@ -92,6 +93,20 @@ export default function ChatPage({ params }: Props) {
     }
   }
 
+  const { state: recState, formattedTime, error: recError, start: startRec, stop: stopRec, cancel: cancelRec } = useVoiceRecorder({
+    onVoiceBlob: async (blob, durationMs) => {
+      if (!token) return;
+      const { url } = await uploadChatVoice(blob, token);
+      const msg = await sendMessage(adminId, {
+        content: null,
+        messageType: "VOICE",
+        fileUrl: url,
+        fileName: `voice_${Math.round(durationMs / 1000)}s.webm`,
+      }, token);
+      setMessages((prev) => [...prev, msg]);
+    },
+  });
+
   async function handleFileUpload(file: File, type: "image" | "document") {
     if (!token) return;
     setUploading(true);
@@ -166,6 +181,8 @@ export default function ChatPage({ params }: Props) {
                       {m.messageType === "IMAGE" && m.fileUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={m.fileUrl} alt="image" className="rounded-xl max-w-full max-h-48 object-cover" />
+                      ) : m.messageType === "VOICE" && m.fileUrl ? (
+                        <audio controls src={m.fileUrl} className="max-w-[200px] h-8" />
                       ) : m.messageType === "DOCUMENT" && m.fileUrl ? (
                         <a href={m.fileUrl} target="_blank" rel="noopener noreferrer"
                           className={`text-xs font-medium underline ${fromMe ? "text-white" : "text-teal-DEFAULT"}`}>
@@ -201,35 +218,62 @@ export default function ChatPage({ params }: Props) {
 
       {/* Input */}
       <div className="bg-white border-t border-border px-4 py-3 shrink-0">
-        <form onSubmit={handleSend} className="flex items-end gap-2">
-          {/* Attachment buttons */}
-          <input ref={imgRef} type="file" accept="image/*" className="hidden"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, "image"); e.target.value = ""; }} />
-          <input ref={fileRef} type="file" className="hidden"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, "document"); e.target.value = ""; }} />
+        {recState === "recording" ? (
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+            <span className="text-sm font-medium text-red-600 tabular-nums">{formattedTime}</span>
+            <span className="text-xs text-navy-muted flex-1">Recording voice message…</span>
+            <button onClick={cancelRec} className="p-2 text-navy-faint hover:text-red-500 transition-colors">
+              <X size={18} />
+            </button>
+            <button onClick={stopRec}
+              className="p-2.5 bg-teal-DEFAULT text-white rounded-full hover:bg-teal-dark transition-colors">
+              <MicOff size={16} />
+            </button>
+          </div>
+        ) : recState === "uploading" ? (
+          <div className="flex items-center gap-3">
+            <Loader2 size={16} className="animate-spin text-teal-DEFAULT" />
+            <span className="text-sm text-navy-muted">Sending voice message…</span>
+          </div>
+        ) : (
+          <form onSubmit={handleSend} className="flex items-end gap-2">
+            <input ref={imgRef} type="file" accept="image/*" className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, "image"); e.target.value = ""; }} />
+            <input ref={fileRef} type="file" className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, "document"); e.target.value = ""; }} />
 
-          <button type="button" onClick={() => imgRef.current?.click()} disabled={uploading}
-            className="p-2 text-navy-faint hover:text-navy-muted transition-colors shrink-0">
-            <Image size={18} />
-          </button>
-          <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
-            className="p-2 text-navy-faint hover:text-navy-muted transition-colors shrink-0">
-            <Paperclip size={18} />
-          </button>
+            <button type="button" onClick={() => imgRef.current?.click()} disabled={uploading}
+              className="p-2 text-navy-faint hover:text-navy-muted transition-colors shrink-0">
+              <Image size={18} />
+            </button>
+            <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
+              className="p-2 text-navy-faint hover:text-navy-muted transition-colors shrink-0">
+              <Paperclip size={18} />
+            </button>
 
-          <textarea
-            value={text}
-            onChange={handleTextChange}
-            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(e as any); } }}
-            placeholder="Type a message…"
-            rows={1}
-            className="flex-1 border border-border rounded-2xl px-4 py-2.5 text-sm outline-none focus:border-teal-DEFAULT resize-none"
-          />
-          <button type="submit" disabled={!text.trim() || sending || uploading}
-            className="p-2.5 bg-teal-DEFAULT text-white rounded-full hover:bg-teal-dark transition-colors disabled:opacity-40 shrink-0">
-            {sending || uploading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-          </button>
-        </form>
+            <textarea
+              value={text}
+              onChange={handleTextChange}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(e as any); } }}
+              placeholder="Type a message…"
+              rows={1}
+              className="flex-1 border border-border rounded-2xl px-4 py-2.5 text-sm outline-none focus:border-teal-DEFAULT resize-none"
+            />
+            {!text.trim() ? (
+              <button type="button" onClick={startRec} disabled={uploading}
+                className="p-2.5 bg-canvas text-navy-muted rounded-full hover:bg-navy-ghost transition-colors shrink-0 border border-border">
+                <Mic size={16} />
+              </button>
+            ) : (
+              <button type="submit" disabled={sending || uploading}
+                className="p-2.5 bg-teal-DEFAULT text-white rounded-full hover:bg-teal-dark transition-colors disabled:opacity-40 shrink-0">
+                {sending || uploading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+              </button>
+            )}
+          </form>
+        )}
+        {recError && <p className="text-xs text-red-600 mt-1">{recError}</p>}
       </div>
     </div>
   );
