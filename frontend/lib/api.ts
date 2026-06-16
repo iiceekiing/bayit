@@ -283,3 +283,21 @@ export async function toggleSaved(propertyId: string, token: string) {
 export async function adminGetUsers(token: string) {
   return request<User[]>("/api/users/admin", { headers: authHeader(token) });
 }
+
+// ─── Password Reset ────────────────────────────────────────────────────────────
+
+export async function forgotPassword(email: string) {
+  return request<{ message: string }>("/api/auth/forgot-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function resetPassword(token: string, password: string) {
+  return request<{ message: string }>("/api/auth/reset-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, password }),
+  });
+}

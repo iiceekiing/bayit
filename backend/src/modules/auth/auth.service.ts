@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, ConflictException, UnauthorizedException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -43,6 +43,39 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException();
     return this.sanitize(user);
+  }
+
+  async forgotPassword(email: string) {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      // Return silently to prevent email enumeration
+      return { message: 'If that email is registered, a reset link has been sent.' };
+    }
+    const resetToken = this.jwt.sign(
+      { sub: user.id, purpose: 'password-reset' },
+      { expiresIn: '15m' },
+    );
+    const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
+    await this.email.sendPasswordReset(user.email, user.name, resetLink);
+    return { message: 'If that email is registered, a reset link has been sent.' };
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    let payload: any;
+    try {
+      payload = this.jwt.verify(token);
+    } catch {
+      throw new BadRequestException('Reset token is invalid or has expired');
+    }
+    if (payload.purpose !== 'password-reset') {
+      throw new BadRequestException('Invalid reset token');
+    }
+    const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const hashed = await bcrypt.hash(newPassword, 12);
+    await this.prisma.user.update({ where: { id: user.id }, data: { password: hashed } });
+    return { message: 'Password updated successfully' };
   }
 
   private signToken(sub: string, email: string, role: string) {
