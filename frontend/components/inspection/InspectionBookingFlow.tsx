@@ -10,6 +10,7 @@ import {
 import type { Property, InspectionSlot } from "@/lib/types";
 import { bookInspection, getPaymentSettings, uploadReceipt, getToken } from "@/lib/api";
 import { formatPrice } from "@/lib/utils";
+import { usePaystack } from "@/hooks/usePaystack";
 
 interface Props { property: Property }
 
@@ -34,6 +35,38 @@ export function InspectionBookingFlow({ property }: Props) {
   const [payMethod, setPayMethod] = useState<"bank" | "paystack">("bank");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  // Paystack reference for card payment
+  const [paystackRef] = useState(() => `BAYIT-INS-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`);
+
+  const { initiate: openPaystack } = usePaystack({
+    email: form.email || "guest@bayit.ng",
+    amount: 1000000, // ₦10,000 in kobo
+    reference: paystackRef,
+    onSuccess: async (reference) => {
+      if (!selectedSlot) return;
+      const token = getToken();
+      if (!token) { router.push("/login"); return; }
+      setSubmitting(true);
+      setError("");
+      try {
+        const result = await bookInspection({
+          slotId: selectedSlot.id,
+          fullName: form.fullName,
+          email: form.email,
+          phone: form.phone,
+          paymentReference: reference,
+        }, token);
+        setBooking(result);
+        setStep("success");
+      } catch (e: any) {
+        setError(e.message ?? "Booking failed. Please try again.");
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    onCancel: () => setError("Payment cancelled. Please try again."),
+  });
 
   // Booking result
   const [booking, setBooking] = useState<any>(null);
@@ -410,12 +443,28 @@ export function InspectionBookingFlow({ property }: Props) {
                 </button>
               </form>
             ) : (
-              <div className="text-center py-6">
-                <CreditCard size={32} className="text-navy-muted mx-auto mb-3" />
-                <p className="text-sm text-navy-muted mb-4">Card payment via Paystack</p>
-                <button className="bg-teal-DEFAULT text-white font-medium rounded-full px-8 py-3 hover:bg-teal-dark transition-colors">
-                  Pay ₦10,000 with Paystack
+              <div className="space-y-4">
+                <div className="bg-canvas border border-border rounded-xl p-4 text-sm space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-navy-muted">Property</span>
+                    <span className="font-medium text-navy-DEFAULT text-right max-w-[60%] line-clamp-1">{property.title}</span>
+                  </div>
+                  <div className="border-t border-border pt-2 flex justify-between">
+                    <span className="font-semibold text-navy-DEFAULT">Amount</span>
+                    <span className="font-bold text-navy-DEFAULT">₦10,000</span>
+                  </div>
+                </div>
+                {error && <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+                <button
+                  onClick={openPaystack}
+                  disabled={submitting || !form.fullName || !form.email || !form.phone}
+                  className="w-full bg-teal-DEFAULT text-white font-medium rounded-full py-3.5 hover:bg-teal-dark transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
+                >
+                  {submitting
+                    ? <><Loader2 size={15} className="animate-spin" /> Processing…</>
+                    : <><CreditCard size={15} /> Pay ₦10,000 with Card</>}
                 </button>
+                <p className="text-xs text-center text-navy-faint">Secured by Paystack · Card, USSD, Bank Transfer</p>
               </div>
             )}
           </div>
