@@ -2,6 +2,7 @@ import type {
   AuthResponse, User, Property, PaginatedProperties, PropertyFilters,
   InspectionBooking, InspectionSlot, Reservation, Transaction, AdminTransaction,
   Message, ConversationSummary, AdminSummary, Notification, PaymentSettings,
+  PropertyDocument,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -93,11 +94,11 @@ export async function adminDeleteProperty(id: string, token: string): Promise<vo
   await request(`/api/properties/${id}`, { method: "DELETE", headers: authHeader(token) });
 }
 
-export async function adminAddDocument(propertyId: string, doc: { type: string; name: string; url: string }, token: string) {
+export async function adminAddDocument(propertyId: string, doc: { type: string; name: string; url: string }, token: string): Promise<PropertyDocument> {
   return request(`/api/properties/${propertyId}/documents`, { method: "POST", body: JSON.stringify(doc), headers: authHeader(token) });
 }
 
-export async function adminAddInspectionSlot(propertyId: string, slot: any, token: string) {
+export async function adminAddInspectionSlot(propertyId: string, slot: any, token: string): Promise<InspectionSlot> {
   return request(`/api/properties/${propertyId}/inspection-slots`, { method: "POST", body: JSON.stringify(slot), headers: authHeader(token) });
 }
 
@@ -127,7 +128,7 @@ export async function adminGetInspections(token: string, propertyId?: string): P
   return request(`/api/inspections/admin${params}`, { headers: authHeader(token) });
 }
 
-export async function adminUpdateInspectionStatus(id: string, status: string, adminNotes: string | undefined, token: string) {
+export async function adminUpdateInspectionStatus(id: string, status: string, adminNotes: string | undefined, token: string): Promise<InspectionBooking> {
   return request(`/api/inspections/admin/${id}/status`, {
     method: "PATCH", body: JSON.stringify({ status, adminNotes }), headers: authHeader(token),
   });
@@ -149,7 +150,7 @@ export async function adminGetReservations(token: string): Promise<Reservation[]
   return request("/api/reservations/admin", { headers: authHeader(token) });
 }
 
-export async function adminUpdateReservation(id: string, status: string, token: string) {
+export async function adminUpdateReservation(id: string, status: string, token: string): Promise<Reservation> {
   return request(`/api/reservations/admin/${id}/status`, {
     method: "PATCH", body: JSON.stringify({ status }), headers: authHeader(token),
   });
@@ -171,7 +172,7 @@ export async function adminGetTransactions(token: string): Promise<AdminTransact
   return request("/api/transactions/admin", { headers: authHeader(token) });
 }
 
-export async function adminUpdateTransaction(id: string, status: string, adminNotes: string | undefined, token: string) {
+export async function adminUpdateTransaction(id: string, status: string, adminNotes: string | undefined, token: string): Promise<AdminTransaction> {
   return request(`/api/transactions/admin/${id}`, {
     method: "PATCH", body: JSON.stringify({ status, adminNotes }), headers: authHeader(token),
   });

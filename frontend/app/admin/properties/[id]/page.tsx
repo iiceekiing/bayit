@@ -16,7 +16,7 @@ import {
 import {
   formatPrice, statusLabel, statusColor, propertyTypeLabel, amenityLabel, amenityEmoji,
 } from "@/lib/utils";
-import type { Property, InspectionBooking } from "@/lib/types";
+import type { Property, InspectionBooking, PropertyStatus } from "@/lib/types";
 
 interface Props { params: Promise<{ id: string }> }
 
@@ -189,7 +189,7 @@ export default function AdminPropertyDetailPage({ params }: Props) {
               <p className="text-[11px] text-navy-faint uppercase tracking-wide mb-1">Change Status</p>
               <select onChange={handleStatusChange} value={property.status}
                 className="border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-teal-DEFAULT text-navy-DEFAULT w-full sm:w-auto">
-                {["AVAILABLE","INSPECTION_BOOKED","RESERVED","PENDING_PAYMENT","SOLD","OFF_MARKET","UNDER_REVIEW"].map((s) => (
+                {(["AVAILABLE","INSPECTION_BOOKED","RESERVED","PENDING_PAYMENT","SOLD","OFF_MARKET","UNDER_REVIEW"] as PropertyStatus[]).map((s) => (
                   <option key={s} value={s}>{statusLabel(s)}</option>
                 ))}
               </select>

@@ -133,10 +133,6 @@ export class InspectionsService {
         title: 'Inspection Approved',
         message: `Your inspection for ${booking.slot.property.title} on ${new Date(booking.slot.date).toDateString()} has been approved. Please bring a valid ID.`,
       },
-      REJECTED: {
-        title: 'Inspection Rejected',
-        message: `Your inspection booking for ${booking.slot.property.title} has been rejected.${adminNotes ? ` Reason: ${adminNotes}` : ''}`,
-      },
       COMPLETED: {
         title: 'Inspection Completed',
         message: `Your inspection for ${booking.slot.property.title} has been marked as completed.`,
@@ -160,7 +156,7 @@ export class InspectionsService {
         new Date(booking.slot.date).toDateString(),
         booking.slot.time,
       );
-    } else if (status === 'REJECTED') {
+    } else if (status === 'CANCELLED') {
       await this.email.sendInspectionRejected(
         booking.email,
         booking.fullName,
