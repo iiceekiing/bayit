@@ -5,8 +5,23 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { rawBody: true });
 
+  const staticAllowedOrigins = [
+    process.env.FRONTEND_URL,
+    'http://localhost:3000',
+  ].filter((url): url is string => Boolean(url));
+
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: (origin, callback) => {
+      if (
+        !origin ||
+        staticAllowedOrigins.includes(origin) ||
+        /^https:\/\/[a-z0-9-]+\.vercel\.app$/.test(origin)
+      ) {
+        callback(null, true);
+      } else {
+        callback(new Error(`Not allowed by CORS: ${origin}`), false);
+      }
+    },
     credentials: true,
   });
 
